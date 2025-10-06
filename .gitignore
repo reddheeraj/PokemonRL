@@ -1,0 +1,62 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+.venv
+recordings/
+screenshots/
+
+# Model files and checkpoints
+models/
+*.zip
+*.pth
+*.pt
+
+# Logs and training outputs
+logs/
+*.log
+events.out.tfevents.*
+
+# Save states
+saves/
+*.state
+
+# ROM files (not to be shared)
+roms/
+*.gb
+*.gbc
+*.gba
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# Data
+data/
+*.csv
+*.pkl
+
+# TensorBoard
+runs/
+
+# Coverage
+.coverage
+htmlcov/
+
