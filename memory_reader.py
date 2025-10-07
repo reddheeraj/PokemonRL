@@ -72,4 +72,3 @@ class PokemonRedMemory:
         # Simple hash combining position, map, and game progress
         state_hash = (map_id << 16) | (x << 8) | y | (party_count << 24) | (in_battle << 31)
         return state_hash
-

@@ -11,6 +11,7 @@ from stable_baselines3 import PPO
 from stable_baselines3.common.callbacks import CheckpointCallback
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.vec_env import DummyVecEnv, VecFrameStack
+from stable_baselines3.common.vec_env import VecTransposeImage
 from stable_baselines3.common.logger import configure
 
 from pokemon_env import PokemonRedEnv, PokemonRedWrapper
@@ -116,8 +117,10 @@ def train(
     os.makedirs(run_log_dir, exist_ok=True)
     
     # Create environment
-    print("\n[1/4] Creating environment...")
-    env = DummyVecEnv([make_env(rom_path, headless=headless)])
+    print(f"\n[1/4] Creating {NUM_ENVS} parallel environments...")
+    env = DummyVecEnv([make_env(rom_path, headless=headless) for _ in range(NUM_ENVS)])
+    # Ensure channel-first (C, H, W) for CnnPolicy
+    env = VecTransposeImage(env)
     
     # Create or load model
     if load_model and os.path.exists(load_model):

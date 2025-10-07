@@ -4,6 +4,8 @@ Test script to verify the environment is working correctly
 
 import argparse
 from pokemon_env import PokemonRedEnv, PokemonRedWrapper
+import cv2
+import numpy as np
 from config import ROM_PATH
 
 
@@ -39,6 +41,21 @@ def test_environment(rom_path=ROM_PATH, num_steps=1000):
         print("[OK] Environment reset successfully!")
         print(f"  Observation shape: {obs.shape}")
         print(f"  Initial info: {info}")
+        # ---- Live map & mask preview (testing only) ----
+        # When visited mask is enabled, visualize side-by-side with the frame
+        try:
+            h, w = obs.shape[:2]
+            if obs.shape[2] >= 2:
+                frame = obs[:, :, 0]
+                mask = obs[:, :, 1]
+                vis = np.concatenate([
+                    cv2.resize(frame, (w*3, h*3), interpolation=cv2.INTER_NEAREST),
+                    cv2.resize(mask, (w*3, h*3), interpolation=cv2.INTER_NEAREST)
+                ], axis=1)
+                cv2.imshow("Frame (left) | Visited Mask (right)", vis)
+                cv2.waitKey(1)
+        except Exception:
+            pass
     except Exception as e:
         print(f"[ERROR] Failed to reset environment: {e}")
         env.close()
@@ -56,14 +73,32 @@ def test_environment(rom_path=ROM_PATH, num_steps=1000):
             action = env.action_space.sample()
             obs, reward, terminated, truncated, info = env.step(action)
             total_reward += reward
+            # Live update: show frame and visited mask side-by-side
+            try:
+                h, w = obs.shape[:2]
+                if obs.shape[2] >= 2:
+                    frame = obs[:, :, 0]
+                    mask = obs[:, :, 1]
+                else:
+                    frame = obs[:, :, 0]
+                    mask = np.zeros_like(frame)
+                vis = np.concatenate([
+                    cv2.resize(frame, (w*3, h*3), interpolation=cv2.INTER_NEAREST),
+                    cv2.resize(mask, (w*3, h*3), interpolation=cv2.INTER_NEAREST)
+                ], axis=1)
+                cv2.imshow("Frame (left) | Visited Mask (right)", vis)
+                cv2.waitKey(1)
+            except Exception:
+                pass
             
-            # Print progress every 100 steps
+            # Print progress every 100 steps with tile information
             if (step + 1) % 100 == 0:
                 print(f"Step {step + 1:4d}/{num_steps} | "
                       f"Reward: {total_reward:7.2f} | "
                       f"Pos: ({info['player_x']:3d}, {info['player_y']:3d}) | "
                       f"Map: {info['map_id']:3d} | "
-                      f"Party: {info['party_count']}")
+                      f"Party: {info['party_count']} | "
+                      f"Tile: {info['tile_name']}")
             
             # Reset if episode ends
             if terminated or truncated:
@@ -80,6 +115,10 @@ def test_environment(rom_path=ROM_PATH, num_steps=1000):
         print(f"\n[ERROR] Error during testing: {e}")
     finally:
         env.close()
+        try:
+            cv2.destroyAllWindows()
+        except Exception:
+            pass
         print("\nEnvironment closed.")
     
     print("\n" + "="*70)
@@ -110,4 +149,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
