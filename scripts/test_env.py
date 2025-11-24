@@ -2,7 +2,11 @@
 Test script to verify the environment is working correctly
 """
 
+import os
+import sys
 import argparse
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from pokemon_env import PokemonRedEnv, PokemonRedWrapper
 import cv2
 import numpy as np

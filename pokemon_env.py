@@ -37,7 +37,7 @@ class PokemonRedEnv(gym.Env):
     
     metadata = {"render_modes": ["human", "rgb_array"], "render_fps": RENDER_FPS}
     
-    def __init__(self, rom_path=ROM_PATH, render_mode="rgb_array", headless=False, record_video=False, video_fps=60, env_id="env"):
+    def __init__(self, rom_path=ROM_PATH, render_mode="rgb_array", headless=False, record_video=False, video_fps=60, env_id="env", training_mode=None):
         super().__init__()
         
         self.rom_path = rom_path
@@ -48,6 +48,30 @@ class PokemonRedEnv(gym.Env):
         self.env_id = env_id
         self.video_writer = None
         self.video_frames = []
+        
+        # Training mode: "house_exit", "exploration", "battle", or None (use base config)
+        self.training_mode = training_mode
+        if training_mode:
+            # Dynamically import the appropriate config
+            if training_mode == "house_exit":
+                from config.config_sequence1_house_exit import REWARDS as SEQ_REWARDS, MAX_STEPS_PER_EPISODE as SEQ_MAX_STEPS
+                self.sequence_rewards = SEQ_REWARDS
+                self.sequence_max_steps = SEQ_MAX_STEPS
+            elif training_mode == "exploration":
+                from config.config_sequence2_exploration import REWARDS as SEQ_REWARDS, MAX_STEPS_PER_EPISODE as SEQ_MAX_STEPS
+                self.sequence_rewards = SEQ_REWARDS
+                self.sequence_max_steps = SEQ_MAX_STEPS
+            elif training_mode == "battle":
+                from config.config_sequence3_battle import REWARDS as SEQ_REWARDS, MAX_STEPS_PER_EPISODE as SEQ_MAX_STEPS
+                self.sequence_rewards = SEQ_REWARDS
+                self.sequence_max_steps = SEQ_MAX_STEPS
+            else:
+                print(f"Warning: Unknown training_mode '{training_mode}', using base config")
+                self.sequence_rewards = None
+                self.sequence_max_steps = None
+        else:
+            self.sequence_rewards = None
+            self.sequence_max_steps = None
         
         # Initialize PyBoy emulator
         # PyBoy 2.x API: use 'null' instead of 'headless' for headless mode
@@ -326,7 +350,9 @@ class PokemonRedEnv(gym.Env):
         observation = self._get_observation()
         reward = self._calculate_reward()
         terminated = self._is_terminated()
-        truncated = self.steps >= MAX_STEPS_PER_EPISODE
+        # Use sequence-specific max steps if available
+        max_steps = self.sequence_max_steps if self.sequence_max_steps else MAX_STEPS_PER_EPISODE
+        truncated = self.steps >= max_steps
         info = self._get_info()
         
         self.episode_reward += reward
@@ -406,7 +432,14 @@ class PokemonRedEnv(gym.Env):
         return observation
     
     def _calculate_reward(self):
-        """Calculate reward based on game state with STRONG anti-loop logic"""
+        """Calculate reward based on game state with mode-specific logic"""
+        # Use sequence-specific rewards if available, otherwise use base config
+        rewards_dict = self.sequence_rewards if self.sequence_rewards else REWARDS
+        
+        # Battle mode has different reward logic
+        if self.training_mode == "battle":
+            return self._calculate_battle_reward(rewards_dict)
+        
         # Only start calculating rewards when we're in a valid game state
         current_map_id = self.memory.get_map_id()
         if current_map_id <= 0:
@@ -429,7 +462,7 @@ class PokemonRedEnv(gym.Env):
         if not any([position_changed, party_changed, map_changed, battle_changed, grass_changed]):
             return 0.0  # No change, no reward
             
-        reward = REWARDS["step"]  # Base reward per step
+        reward = rewards_dict.get("step", 0.0)  # Base reward per step
         
         # === ANTI-LOOP LOGIC (STRONG) ===
         # Track position visits for loop detection
@@ -439,14 +472,14 @@ class PokemonRedEnv(gym.Env):
         
         # Strong penalty for returning to same position too often
         if self.position_visits[current_position] > 3:  # Visited this position 3+ times
-            reward += REWARDS["anti_loop_penalty"]
+            reward += rewards_dict.get("anti_loop_penalty", 0.0)
             if self.position_visits[current_position] > 5:  # Very strong penalty for 5+ visits
-                reward += REWARDS["loop_detection_penalty"]
+                reward += rewards_dict.get("loop_detection_penalty", 0.0)
         
         
         # Curriculum exploration - large bonus for new areas
         if current_position not in self.visited_positions:
-            reward += REWARDS["curriculum_exploration"]
+            reward += rewards_dict.get("curriculum_exploration", 0.0)
             self.visited_positions.add(current_position)
             self.exploration_momentum += 1
         else:
@@ -455,7 +488,7 @@ class PokemonRedEnv(gym.Env):
         
         # Reward for exploration momentum
         if self.exploration_momentum > 0:
-            reward += REWARDS["exploration_momentum"]
+            reward += rewards_dict.get("exploration_momentum", 0.0)
         
         # === ANTI-SPAM PENALTIES (BALANCED) ===
         # Track position changes for same-position penalty
@@ -467,22 +500,22 @@ class PokemonRedEnv(gym.Env):
         
         # Small penalty for staying in same position too long
         if self.same_position_streak > 5:  # 5+ steps in same position
-            reward += REWARDS["same_position_streak"]
+            reward += rewards_dict.get("same_position_streak", 0.0)
         
         # Moderate penalty if no movement for too long
         if self.same_position_streak > 20:  # 20+ steps in same position
-            reward += REWARDS["movement_required"]
+            reward += rewards_dict.get("movement_required", 0.0)
         
         # Small penalties for button spam
         if self.a_button_streak > 3:  # 3+ consecutive A presses
-            reward += REWARDS["a_button_spam"]
+            reward += rewards_dict.get("a_button_spam", 0.0)
             if self.a_button_streak > 5:  # Extra penalty for long streaks
-                reward += REWARDS["button_spam_streak"]
+                reward += rewards_dict.get("button_spam_streak", 0.0)
         
         if self.b_button_streak > 3:  # 3+ consecutive B presses
-            reward += REWARDS["b_button_spam"]
+            reward += rewards_dict.get("b_button_spam", 0.0)
             if self.b_button_streak > 5:  # Extra penalty for long streaks
-                reward += REWARDS["button_spam_streak"]
+                reward += rewards_dict.get("button_spam_streak", 0.0)
         
         # === MOVEMENT AND EXPLORATION REWARDS ===
         if position_changed:
@@ -491,15 +524,15 @@ class PokemonRedEnv(gym.Env):
                        (current_position[1] - self.previous_position[1])**2)**0.5
             
             # Basic movement reward
-            reward += REWARDS["movement"]
+            reward += rewards_dict.get("movement", 0.0)
             
             # Distance-based reward
-            reward += REWARDS["distance_traveled"] * distance
+            reward += rewards_dict.get("distance_traveled", 0.0) * distance
             self.exploration_distance += distance
             
             # New position reward
             if current_position not in self.visited_positions:
-                reward += REWARDS["new_position"]
+                reward += rewards_dict.get("new_position", 0.0)
                 self.visited_positions.add(current_position)
             
             # Update position tracking
@@ -513,13 +546,13 @@ class PokemonRedEnv(gym.Env):
         else:
             # Player didn't move - could be hitting a wall or stuck
             if self.last_action in self.movement_actions:  # Only penalize movement actions
-                reward += REWARDS["wall_hit"]  # Penalty for hitting wall
+                reward += rewards_dict.get("wall_hit", 0.0)  # Penalty for hitting wall
                 self.stuck_counter += 1
             else:
                 # Non-movement action, don't penalize
                 self.stuck_counter = 0
                 # Global no-move penalty (applies even if A/B/no-op)
-                reward += REWARDS["no_move"]
+                reward += rewards_dict.get("no_move", 0.0)
 
         # === LOOP DETECTION AND BREAKING ===
         # Track action patterns
@@ -532,44 +565,44 @@ class PokemonRedEnv(gym.Env):
             # Check for simple alternating patterns (A-B-A-B-A-B)
             recent_actions = self.action_patterns[-10:]
             if self._detect_repetitive_pattern(recent_actions):
-                reward += REWARDS["pattern_penalty"]
+                reward += rewards_dict.get("pattern_penalty", 0.0)
                 # Give bonus for breaking the pattern
                 if len(set(recent_actions[-3:])) >= 2:  # Recent actions are diverse
-                    reward += REWARDS["loop_break_bonus"]
+                    reward += rewards_dict.get("loop_break_bonus", 0.0)
         
         # Detect position loops (returning to same area repeatedly)
         if len(self.position_history) >= 10:
             if self._detect_position_loop():
-                reward += REWARDS["pattern_penalty"]
+                reward += rewards_dict.get("pattern_penalty", 0.0)
         
         # === ACTION VARIETY REWARDS ===
         # Reward for trying different actions
         if len(self.recent_actions) >= 8:
             unique_actions = len(set(self.recent_actions[-8:]))
             if unique_actions >= 4:  # Good variety
-                reward += REWARDS["variety_bonus"]
+                reward += rewards_dict.get("variety_bonus", 0.0)
         
         # === EXPLORATION BONUSES ===
         # Large exploration bonus for significant movement
         if self.exploration_distance > 50:  # Significant exploration
-            reward += REWARDS["exploration_bonus"]
+            reward += rewards_dict.get("exploration_bonus", 0.0)
             self.exploration_distance = 0  # Reset
         
         # === EXISTING REWARDS ===
         # Penalize no-op
         if self.last_action == 0:
-            reward += REWARDS["no_op"]
+            reward += rewards_dict.get("no_op", 0.0)
         
         # Penalty for being stuck in same position for too long
         if self.stuck_counter > 10:  # Stuck for 10+ steps
-            reward += REWARDS["stuck"]
+            reward += rewards_dict.get("stuck", 0.0)
             self.stuck_counter = 0  # Reset to avoid continuous penalty
         
         # Map transitions and first-time map visit bonus
         if map_changed:
-            reward += REWARDS["map_transition"]
+            reward += rewards_dict.get("map_transition", 0.0)
             if current_map_id not in self.seen_maps_this_episode:
-                reward += REWARDS["first_time_on_map"]
+                reward += rewards_dict.get("first_time_on_map", 0.0)
                 self.seen_maps_this_episode.add(current_map_id)
             self.previous_map_id = current_map_id
             # Switch to the visited mask for this map
@@ -584,14 +617,14 @@ class PokemonRedEnv(gym.Env):
                     )
                 self.visited_mask = self.visited_masks[current_map_id]
 
-        # Check if entered grass area (dense progress cue)
-        if grass_changed and in_grass:
-            reward += REWARDS["move_to_grass"]
+        # Check if entered grass area (dense progress cue) - only for exploration mode
+        if self.training_mode != "house_exit" and grass_changed and in_grass:
+            reward += rewards_dict.get("move_to_grass", 0.0)
             self.entered_grass = True
         
         # Check if battle started
         if battle_changed and in_battle:
-            reward += REWARDS["start_battle"]
+            reward += rewards_dict.get("start_battle", 0.0)
             self.battle_started = True
             self.initial_hp = self.memory.get_first_pokemon_hp()
         
@@ -599,9 +632,9 @@ class PokemonRedEnv(gym.Env):
         if party_changed:
             # Distinguish between first acquisition (starter) and later catches
             if self.previous_party_count == 0 and not in_battle:
-                reward += REWARDS["starter_obtained"]
+                reward += rewards_dict.get("starter_obtained", 0.0)
             else:
-                reward += REWARDS["catch_pokemon"]
+                reward += rewards_dict.get("catch_pokemon", 0.0)
             self.previous_party_count = current_party_count
         
         # Reward for exploration (visiting new states)
@@ -609,6 +642,36 @@ class PokemonRedEnv(gym.Env):
         if state_hash not in self.visited_states:
             self.visited_states.add(state_hash)
             reward += 0.1  # Small exploration bonus
+        
+        return reward
+    
+    def _calculate_battle_reward(self, rewards_dict):
+        """Calculate reward specifically for battle mode"""
+        reward = rewards_dict.get("step", 0.0)
+        
+        # Get battle state
+        in_battle = self.memory.is_in_battle()
+        if not in_battle:
+            # Not in battle - small penalty
+            reward += rewards_dict.get("no_battle_action", 0.0)
+            return reward
+        
+        # Track battle actions
+        if self.last_action != 0:
+            reward += rewards_dict.get("battle_action_taken", 0.0)
+        
+        # Track enemy HP changes (would need to read enemy HP from memory)
+        # For now, just reward menu navigation and actions
+        if self.last_action in [1, 2, 3, 4]:  # Movement (menu navigation)
+            reward += rewards_dict.get("menu_navigation", 0.0)
+        
+        # Penalize no-op in battle
+        if self.last_action == 0:
+            reward += rewards_dict.get("no_op", 0.0)
+        
+        # Button spam penalty
+        if self.a_button_streak > 3 or self.b_button_streak > 3:
+            reward += rewards_dict.get("button_spam", 0.0)
         
         return reward
     
@@ -701,11 +764,30 @@ class PokemonRedEnv(gym.Env):
         return nearby_count >= 3  # Been near this position 3+ times recently
     
     def _is_terminated(self):
-        """Check if episode should end (goal achieved)"""
-        # Episode ends if we caught a Pokemon
-        current_party_count = self.memory.get_party_count()
-        if current_party_count > self.previous_party_count:
-            return True
+        """Check if episode should end (goal achieved) - mode-specific"""
+        if self.training_mode == "house_exit":
+            # Episode ends when agent exits house (map transition from inside to outside)
+            current_map_id = self.memory.get_map_id()
+            # Map ID changes when exiting house (need to verify actual map IDs)
+            if current_map_id != self.previous_map_id and self.previous_map_id > 0:
+                return True
+        elif self.training_mode == "exploration":
+            # Episode ends when agent reaches grass or triggers battle
+            in_grass = self.memory.in_grass_area()
+            in_battle = self.memory.is_in_battle()
+            if in_grass or in_battle:
+                return True
+        elif self.training_mode == "battle":
+            # Episode ends when battle is won or lost
+            in_battle = self.memory.is_in_battle()
+            if not in_battle and self.battle_started:
+                # Battle ended
+                return True
+        else:
+            # Default: Episode ends if we caught a Pokemon
+            current_party_count = self.memory.get_party_count()
+            if current_party_count > self.previous_party_count:
+                return True
         return False
     
     def _get_info(self):

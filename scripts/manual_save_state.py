@@ -2,6 +2,10 @@
 Launch a fresh instance of Pokemon Red for manual save state creation
 """
 
+import os
+import sys
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 import time
 from pyboy import PyBoy
 from config import ROM_PATH

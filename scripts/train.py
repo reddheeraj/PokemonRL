@@ -3,7 +3,10 @@ Training script for Pokemon Red RL agent
 """
 
 import os
+import sys
 import argparse
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from datetime import datetime
 import numpy as np
 import torch

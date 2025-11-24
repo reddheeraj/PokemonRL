@@ -3,7 +3,10 @@ Script to visualize trained Pokemon Red RL agent
 """
 
 import os
+import sys
 import argparse
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 import time
 import numpy as np
 from stable_baselines3 import PPO
@@ -41,7 +44,7 @@ class ObsAdapter(gym.ObservationWrapper):
         return obs
 
 
-def play_pokemon(model_path, rom_path=ROM_PATH, num_episodes=5, fps=30):
+def play_pokemon(model_path, rom_path=ROM_PATH, num_episodes=5, fps=30, training_mode=None):
     """
     Run the trained agent and visualize gameplay
     
@@ -50,6 +53,7 @@ def play_pokemon(model_path, rom_path=ROM_PATH, num_episodes=5, fps=30):
         rom_path: Path to Pokemon Red ROM
         num_episodes: Number of episodes to play
         fps: Frames per second for visualization
+        training_mode: Training mode for the environment (house_exit, exploration, battle)
     """
     print("="*70)
     print("POKEMON RED RL - GAMEPLAY VISUALIZATION")
@@ -100,7 +104,12 @@ def play_pokemon(model_path, rom_path=ROM_PATH, num_episodes=5, fps=30):
 
     # Build env consistent with the model's expected per-frame shape
     def _init():
-        e = PokemonRedEnv(rom_path=rom_path, render_mode="human", headless=False)
+        e = PokemonRedEnv(
+            rom_path=rom_path, 
+            render_mode="human", 
+            headless=False,
+            training_mode=training_mode
+        )
         if legacy_adapter:
             e = ObsAdapter(e, target_h, target_w, target_c)
         e = PokemonRedWrapper(e, stack_frames=stack_frames)
@@ -168,17 +177,51 @@ def play_pokemon(model_path, rom_path=ROM_PATH, num_episodes=5, fps=30):
 def main():
     parser = argparse.ArgumentParser(description="Play Pokemon Red with trained RL agent")
     parser.add_argument("--model", required=True, help="Path to trained model")
-    parser.add_argument("--rom", default=ROM_PATH, help="Path to Pokemon Red ROM")
+    parser.add_argument("--sequence", type=int, choices=[1, 2, 3], help="Sequence number (1=house_exit, 2=exploration, 3=battle). Automatically loads appropriate ROM.")
+    parser.add_argument("--rom", help="Path to Pokemon Red ROM (overrides --sequence if provided)")
     parser.add_argument("--episodes", type=int, default=5, help="Number of episodes to play")
     parser.add_argument("--fps", type=int, default=30, help="FPS for visualization")
     
     args = parser.parse_args()
     
+    # Determine ROM path and training mode based on sequence
+    rom_path = None
+    training_mode = None
+    
+    if args.sequence:
+        # Load appropriate config based on sequence
+        if args.sequence == 1:
+            from config import config_sequence1_house_exit as seq_config
+            rom_path = seq_config.ROM_PATH
+            training_mode = "house_exit"
+            print(f"Using Sequence 1 (House Exit) - ROM: {rom_path}")
+        elif args.sequence == 2:
+            from config import config_sequence2_exploration as seq_config
+            rom_path = seq_config.ROM_PATH
+            training_mode = "exploration"
+            print(f"Using Sequence 2 (Exploration) - ROM: {rom_path}")
+        elif args.sequence == 3:
+            from config import config_sequence3_battle as seq_config
+            rom_path = seq_config.ROM_PATH
+            training_mode = "battle"
+            print(f"Using Sequence 3 (Battle) - ROM: {rom_path}")
+    
+    # Override with explicit ROM path if provided
+    if args.rom:
+        rom_path = args.rom
+        print(f"Using explicit ROM path: {rom_path}")
+    
+    # Fallback to default ROM if neither sequence nor rom provided
+    if not rom_path:
+        rom_path = ROM_PATH
+        print(f"Using default ROM path: {rom_path}")
+    
     play_pokemon(
         model_path=args.model,
-        rom_path=args.rom,
+        rom_path=rom_path,
         num_episodes=args.episodes,
-        fps=args.fps
+        fps=args.fps,
+        training_mode=training_mode
     )
 
 

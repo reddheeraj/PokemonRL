@@ -3,8 +3,11 @@ Training script with video recording and headless support
 """
 
 import os
+import sys
 import time
 import argparse
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from datetime import datetime
 import numpy as np
 from stable_baselines3 import PPO

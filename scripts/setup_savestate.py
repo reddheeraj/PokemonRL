@@ -4,7 +4,10 @@ This allows faster training by skipping the intro sequence
 """
 
 import os
+import sys
 import argparse
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from pyboy import PyBoy
 from config import ROM_PATH
 
