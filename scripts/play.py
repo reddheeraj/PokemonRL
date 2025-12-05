@@ -82,6 +82,11 @@ def play_pokemon(model_path, rom_path=ROM_PATH, num_episodes=5, fps=30, training
     if hasattr(model, "observation_space") and model.observation_space is not None:
         expected_shape = tuple(model.observation_space.shape)
         print(f"Model expects observation shape: {expected_shape}")
+        print(f"Model observation space: {model.observation_space}")
+    
+    # Also check action space
+    if hasattr(model, "action_space") and model.action_space is not None:
+        print(f"Model action space: {model.action_space}")
 
     legacy_adapter = False
     stack_frames = 4
@@ -118,6 +123,23 @@ def play_pokemon(model_path, rom_path=ROM_PATH, num_episodes=5, fps=30, training
 
     vec_env = DummyVecEnv([_init])
     vec_env = VecTransposeImage(vec_env)
+    
+    # Verify observation space matches model
+    print(f"\nEnvironment observation space: {vec_env.observation_space}")
+    print(f"Model observation space: {model.observation_space}")
+    if vec_env.observation_space.shape != model.observation_space.shape:
+        print(f"\nWARNING: Observation space mismatch!")
+        print(f"  Environment: {vec_env.observation_space.shape}")
+        print(f"  Model: {model.observation_space.shape}")
+        print(f"This will cause the model to fail!")
+    
+    # Verify action space matches
+    print(f"\nEnvironment action space: {vec_env.action_space}")
+    print(f"Model action space: {model.action_space}")
+    if vec_env.action_space != model.action_space:
+        print(f"\nWARNING: Action space mismatch!")
+        print(f"  Environment: {vec_env.action_space}")
+        print(f"  Model: {model.action_space}")
     
     # Calculate frame delay for FPS
     frame_delay = 1.0 / fps if fps > 0 else 0

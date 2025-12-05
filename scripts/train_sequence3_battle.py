@@ -11,7 +11,7 @@ import torch
 from stable_baselines3 import PPO
 from stable_baselines3.common.callbacks import CheckpointCallback
 from stable_baselines3.common.monitor import Monitor
-from stable_baselines3.common.vec_env import DummyVecEnv, VecFrameStack
+from stable_baselines3.common.vec_env import DummyVecEnv
 from stable_baselines3.common.vec_env import VecTransposeImage
 from stable_baselines3.common.logger import configure
 
@@ -78,8 +78,8 @@ def main():
     envs = [make_env(i, headless=args.headless, record_video=not args.no_video) for i in range(args.envs)]
     vec_env = DummyVecEnv(envs)
     
-    # Frame stacking
-    vec_env = VecFrameStack(vec_env, n_stack=4)
+    # Note: Frame stacking is handled by PokemonRedWrapper, not VecFrameStack
+    # This ensures consistency with play.py
     
     # Transpose images for CNN (HWC -> CHW)
     vec_env = VecTransposeImage(vec_env)
