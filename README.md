@@ -1,460 +1,340 @@
-# Pokemon Red Reinforcement Learning Project
+# PokeRL: Playing Pokémon Red with Deep Reinforcement Learning
 
 <div align="center">
 
-**Teaching an AI to play Pokemon Red using Deep Reinforcement Learning**
+**Training AI agents to play Pokémon Red using Curriculum Learning and PPO**
 
 ![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)
 ![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-red.svg)
-![License](https://img.shields.io/badge/License-MIT-green.svg)
+![Stable-Baselines3](https://img.shields.io/badge/SB3-2.0+-orange.svg)
+![PyBoy](https://img.shields.io/badge/PyBoy-2.0+-green.svg)
 
 </div>
 
-## 📋 Project Goal
+---
 
-Train a reinforcement learning agent to accomplish a specific task in Pokemon Red:
+## Overview
 
-> **"After walking in Pallet Town, catch one Pokemon in the grass"**
+This project trains reinforcement learning agents to play Pokémon Red (1996) using a **modular curriculum learning** approach. Instead of training on the entire game at once, we decompose the task into three learnable sequences:
 
-This project uses:
-- **PyBoy**: A Python Game Boy emulator
-- **Stable-Baselines3**: State-of-the-art RL algorithms
-- **PPO**: Proximal Policy Optimization algorithm
-- **Custom Gym Environment**: Tailored for Pokemon Red gameplay
+| Sequence | Objective | Description |
+|----------|-----------|-------------|
+| **1. House Exit** | Exit Red's house | Navigate from bedroom to outside |
+| **2. Exploration** | Reach the grass | Travel through Pallet Town to trigger Oak's event |
+| **3. Battle** | Win against Blue | Learn battle mechanics and win the rival fight |
+
+Each sequence has its own:
+- Custom reward function
+- Save state (starting point)
+- Training configuration
+- Trained model
 
 ---
 
-## 🎯 Features
+## Quick Start
 
-- ✅ Custom OpenAI Gymnasium environment for Pokemon Red
-- ✅ Visual training process (watch the AI learn in real-time)
-- ✅ Memory reading utilities to track game state
-- ✅ Reward shaping for efficient learning
-- ✅ Model checkpointing and TensorBoard logging
-- ✅ Inference mode to watch trained agents play
-- ✅ Frame stacking for temporal understanding
+### Watch Pre-Trained Agents Play
+
+> Note: The models are not perfect and the agents may not be able to complete the tasks perfectly. You may have to give a manual trigger like pressing up arrow key or completing a dialogue scene to continue the task.
+
+```bash
+# Sequence 1: House Exit
+python scripts/play.py --model final_models/house_exit_20251204_112405/house_exit_20251204_112405_final.zip --sequence 1 --fps 60
+
+# Sequence 2: Exploration  
+python scripts/play.py --model final_models/exploration_20251204_114057/exploration_20251204_114057_final.zip --sequence 2 --fps 60
+
+# Sequence 3: Battle
+python scripts/play.py --model final_models/battle_20251204_120117/battle_20251204_120117_final.zip --sequence 3 --fps 60
+```
+
+### Options for `play.py`
+
+```bash
+--model PATH      # Path to trained model (.zip file)
+--sequence N      # Sequence number (1, 2, or 3) - auto-loads correct ROM
+--episodes N      # Number of episodes to play (default: 5)
+--fps N           # Playback speed (default: 30)
+--rom PATH        # Override ROM path (optional)
+```
 
 ---
 
-## 🛠️ Setup Instructions
+## Installation
 
 ### Prerequisites
 
-- **Python 3.10 or higher** (3.10, 3.11, or 3.12 recommended)
-- **Pokemon Red ROM** (legally obtained) at `PokeRL/roms/PokemonRed.gb`
-- **Windows/Linux/Mac** with display support for visualization
+- Python 3.10+
+- Pokemon Red ROM (legally obtained)
+- Windows/Linux/Mac
 
-### Step 1: Clone or Navigate to Project Directory
-
-```bash
-cd PokeRL
-```
-
-### Step 2: Create Virtual Environment (Recommended)
+### Setup
 
 ```bash
-# Windows
-python -m venv venv
-venv\Scripts\activate
+# 1. Clone the repository
+git clone https://github.com/reddheeraj/PokemonRL.git
+cd PokemonRL
 
-# Linux/Mac
-python -m venv venv
-source venv/bin/activate
-```
+# 2. Create conda environment
+conda create -n pokemonred python=3.10
+conda activate pokemonred
 
-### Step 3: Install Dependencies
-
-```bash
+# 3. Install dependencies
 pip install -r requirements.txt
+
+# 4. Place your ROM
+# unzip the roms.zip folder and place it in the root directory
 ```
 
-This will install:
-- `numpy` - Numerical computing
-- `torch` - Deep learning framework
-- `gymnasium` - RL environment framework
-- `stable-baselines3` - RL algorithms (PPO, etc.)
-- `pyboy` - Game Boy emulator
-- `opencv-python` - Image processing
-- `tensorboard` - Training visualization
-- `matplotlib` - Plotting
-- `tqdm` - Progress bars
-- `pandas` - Data handling
-
-### Step 4: Verify ROM File
-
-Ensure your Pokemon Red ROM is located at:
-```
-PokeRL/
-├── roms/
-│   └── PokemonRed.gb  ← Your ROM file here
-├── train.py
-├── play.py
-└── ...
-```
-
-### Step 5: Test the Environment
-
-Before training, verify everything is working:
+### Verify Installation
 
 ```bash
-python test_env.py
+python scripts/test_env.py
 ```
 
-This will:
-- Create the Pokemon Red environment
-- Display the game window
-- Execute random actions for 1000 steps
-- Print game state information
-
-**Expected output**: You should see a game window with Pokemon Red running and random movements.
+You should see the game window with random actions being taken.
 
 ---
 
-## 🚀 Training the Agent
+## Project Structure
 
-### Basic Training
-
-Start training with default parameters:
-
-```bash
-python train.py
+```
+PokeRL/
+├── pokemon_env.py              # Core Gymnasium environment
+├── memory_reader.py            # Game RAM reading utilities
+│
+├── config/                     # Configuration files
+│   ├── config.py               # Base configuration
+│   ├── config_sequence1_house_exit.py
+│   ├── config_sequence2_exploration.py
+│   └── config_sequence3_battle.py
+│
+├── scripts/                    # Executable scripts
+│   ├── play.py                 # Watch trained agents play
+│   ├── train_sequence1_house_exit.py
+│   ├── train_sequence2_exploration.py
+│   ├── train_sequence3_battle.py
+│   ├── manual_control.py       # Play manually with visualization
+│   ├── create_sequence_savestate.py
+│   └── test_env.py
+│
+├── final_models/               # Pre-trained models
+│   ├── house_exit_20251204_112405/
+│   ├── exploration_20251204_114057/
+│   └── battle_20251204_120117/
+│
+├── roms/                       # ROM files
+│   ├── PokemonRed.gb           # Base ROM
+│   ├── sequence1_house_exit/   # Sequence 1 ROM + save state
+│   ├── sequence2_exploration/  # Sequence 2 ROM + save state
+│   └── sequence3_battle/       # Sequence 3 ROM + save state
+│
+├── logs/                       # TensorBoard training logs
+├── models/                     # Training checkpoints
+├── recordings/                 # Training videos
+└── tests/                      # Visualization scripts
 ```
 
-This will:
-- Create the environment
-- Initialize a PPO agent
-- Start training for 1,000,000 timesteps
-- Display the game window during training
-- Save checkpoints every 50,000 steps
-- Log metrics to TensorBoard
+---
+
+## Training Your Own Agents
+
+### Train Each Sequence
+
+```bash
+# Sequence 1: House Exit (fastest to train)
+python scripts/train_sequence1_house_exit.py --timesteps 500000 --envs 4
+
+# Sequence 2: Exploration
+python scripts/train_sequence2_exploration.py --timesteps 1000000 --envs 4
+
+# Sequence 3: Battle
+python scripts/train_sequence3_battle.py --timesteps 1000000 --envs 4
+```
 
 ### Training Options
 
 ```bash
-# Train for more steps
-python train.py --timesteps 2000000
-
-# Train without visualization (faster, for overnight training)
-python train.py --headless
-
-# Continue training from a checkpoint
-python train.py --model models/pokemon_rl_model_20250106_120000_500000_steps.zip
-
-# Custom ROM path
-python train.py --rom path/to/your/rom.gb
+--timesteps N     # Total training timesteps (default varies by sequence)
+--envs N          # Number of parallel environments (default: 4)
+--headless        # Run without display (faster training)
+--no-video        # Disable video recording
+--model-name NAME # Custom name for saved model
 ```
 
-### Monitoring Training with TensorBoard
-
-Open a new terminal and run:
+### Monitor Training
 
 ```bash
 tensorboard --logdir=logs
+# Open http://localhost:6006 in browser
 ```
-
-Then open your browser to `http://localhost:6006` to see:
-- Episode rewards over time
-- Loss curves
-- Learning rate schedules
-- And more training metrics
-
-### What to Expect During Training
-
-**Initial Phase (0-100k steps):**
-- Agent explores randomly
-- Learns basic movement
-- Discovers how to navigate Pallet Town
-
-**Middle Phase (100k-500k steps):**
-- Agent learns to move toward grass areas
-- Begins to understand battle mechanics
-- May enter battles occasionally
-
-**Advanced Phase (500k-1M+ steps):**
-- Agent consistently reaches grass
-- Engages in wild battles
-- Learns to catch Pokemon (goal achievement!)
-
-**Note**: Training time varies:
-- With GPU: ~4-8 hours for 1M steps
-- CPU only: ~12-24 hours for 1M steps
 
 ---
 
-## 🎮 Watching the Trained Agent Play
+## Manual Play & Debugging
 
-After training, watch your agent play:
+### Play Manually with Visualization
 
 ```bash
-python play.py --model models/pokemon_final_20250106_120000.zip
+# Play with visited mask visualization
+python scripts/manual_control.py --sequence 1
+
+# With zoomed mask view
+python scripts/manual_control.py --sequence 2 --zoom
 ```
 
-Options:
+**Controls:**
+- Arrow Keys: Move
+- A: A button
+- Space: B button
+- Enter: Start button
+- Z: Toggle mask zoom
+- Q/ESC: Quit
+
+### Create Custom Save States
 
 ```bash
-# Watch for more episodes
-python play.py --model models/your_model.zip --episodes 10
-
-# Change visualization speed
-python play.py --model models/your_model.zip --fps 60
-
-# Use custom ROM
-python play.py --model models/your_model.zip --rom path/to/rom.gb
-```
-
-This will:
-- Load your trained model
-- Display the game window
-- Show the agent playing
-- Print statistics (position, rewards, party count)
-
----
-
-## 📊 Project Structure
-
-```
-PokeRL/
-├── roms/
-│   └── PokemonRed.gb          # Your Pokemon Red ROM
-├── models/                     # Saved model checkpoints (created during training)
-├── logs/                       # TensorBoard logs (created during training)
-├── saves/                      # Save states (optional, for faster training)
-│
-├── config.py                   # Configuration and hyperparameters
-├── memory_reader.py            # Game memory reading utilities
-├── pokemon_env.py              # Custom Gym environment
-├── train.py                    # Training script
-├── play.py                     # Inference/playback script
-├── test_env.py                 # Environment testing script
-├── setup_savestate.py          # Helper to create save states
-├── requirements.txt            # Python dependencies
-└── README.md                   # This file
+python scripts/create_sequence_savestate.py 1  # For sequence 1
+python scripts/create_sequence_savestate.py 2  # For sequence 2
+python scripts/create_sequence_savestate.py 3  # For sequence 3
 ```
 
 ---
 
-## ⚙️ Configuration
+## Technical Details
 
-Edit `config.py` to customize:
+### Environment
 
-### Training Parameters
-```python
-TOTAL_TIMESTEPS = 1_000_000    # Total training steps
-LEARNING_RATE = 0.0003         # PPO learning rate
-N_STEPS = 2048                 # Steps per environment update
-BATCH_SIZE = 64                # Batch size for training
-GAMMA = 0.99                   # Discount factor
+- **Observation**: 72×80×8 (4 stacked frames × 2 channels: grayscale + visited mask)
+- **Action Space**: 7 discrete actions (No-op, Up, Down, Left, Right, A, B)
+- **Frame Skip**: 4 frames per action
+
+### Neural Network (CNN Policy)
+
+```
+Input (8, 72, 80)
+    ↓
+Conv2d(8→32, 8×8, stride=4)  →  ReLU
+    ↓
+Conv2d(32→64, 4×4, stride=2) →  ReLU
+    ↓
+Conv2d(64→64, 3×3, stride=1) →  ReLU
+    ↓
+Flatten → Linear(1920→512) → ReLU
+    ↓
+┌───────────┴───────────┐
+Policy Head          Value Head
+(7 actions)          (state value)
 ```
 
-### Environment Settings
-```python
-MAX_STEPS_PER_EPISODE = 5000   # Max steps before episode ends
-SKIP_FRAMES = 4                # Frame skip (action repeat)
-```
+**Total Parameters**: ~1M
 
-### Reward Values
+### Key Features
+
+1. **Anti-Loop Detection**: Multi-layered system prevents repetitive behavior
+2. **Dense Reward Shaping**: Hierarchical rewards for consistent learning signal
+3. **Per-Map Visited Mask**: Spatial memory for exploration
+4. **Double-Press Movement**: Handles Pokémon Red's unique movement mechanics
+
+---
+
+## Reward Structure
+
+### Sequence 1: House Exit
 ```python
 REWARDS = {
-    "step": -0.01,              # Step penalty (encourages efficiency)
-    "move_to_grass": 1.0,       # Entering grass area
-    "start_battle": 5.0,        # Starting a wild battle
-    "catch_pokemon": 100.0,     # Successfully catching a Pokemon!
+    "movement": 0.5,
+    "map_transition": 10.0,    # Goal: exit house
+    "new_position": 0.3,
+    "anti_loop_penalty": -0.5,
+}
+```
+
+### Sequence 2: Exploration
+```python
+REWARDS = {
+    "movement": 1.0,
+    "move_to_grass": 20.0,     # Goal: reach grass
+    "curriculum_exploration": 5.0,
+    "loop_detection_penalty": -2.0,
+}
+```
+
+### Sequence 3: Battle
+```python
+REWARDS = {
+    "attack_used": 5.0,
+    "enemy_fainted": 20.0,
+    "battle_won": 50.0,        # Goal: win battle
+    "battle_lost": -10.0,
 }
 ```
 
 ---
 
-## 🔧 Advanced Usage
+## Troubleshooting
 
-### Creating a Save State
+### ROM Not Found
+```
+Ensure your ROM is at: roms/PokemonRed.gb
+```
 
-To skip the intro and start training from a specific point:
-
+### PyBoy Window Not Appearing
 ```bash
-python setup_savestate.py
+pip install pysdl2 pysdl2-dll
 ```
 
-This opens the game. Play to your desired starting point (e.g., outside Oak's lab with a starter Pokemon), then close the window. The state will be saved.
-
-Then modify `pokemon_env.py` to load this save state in the `reset()` method.
-
-### Custom Reward Functions
-
-The reward function is in `pokemon_env.py`, method `_calculate_reward()`. You can modify it to:
-- Reward specific movements
-- Penalize getting stuck
-- Reward exploration
-- Etc.
-
-### Using Different RL Algorithms
-
-The code uses PPO by default, but you can try others from Stable-Baselines3:
-
-```python
-from stable_baselines3 import DQN, A2C, SAC
-
-# In train.py, replace:
-model = PPO(...)
-# with:
-model = DQN(...)
-```
-
----
-
-## 📈 Expected Results
-
-### Success Criteria
-
-The agent has learned successfully when it:
-1. ✅ Consistently navigates from starting position to grass area
-2. ✅ Enters wild Pokemon battles
-3. ✅ Successfully catches at least one Pokemon
-4. ✅ Episode reward > 100 (indicates Pokemon was caught)
-
-### Typical Learning Curve
-
-- **Episodes 1-100**: Mostly random movement, low rewards
-- **Episodes 100-500**: Learns navigation, reaches grass occasionally
-- **Episodes 500-1000+**: Consistent grass navigation, increasing battle frequency
-- **After 1000+ episodes**: Should achieve goal occasionally to frequently
-
----
-
-## 🐛 Troubleshooting
-
-### Issue: "ROM file not found"
-**Solution**: Ensure `PokemonRed.gb` is in the `roms/` directory with exact filename.
-
-### Issue: PyBoy window not appearing
-**Solution**: 
-- Check your display settings
-- Try running without `--headless` flag
-- Ensure SDL2 is installed: `pip install pysdl2`
-
-### Issue: Training is very slow
-**Solutions**:
-- Use `--headless` flag to disable rendering
-- Reduce `N_STEPS` in `config.py`
-- Ensure PyTorch is using GPU: `torch.cuda.is_available()` should return `True`
-
-### Issue: Agent not learning
-**Solutions**:
-- Check reward function is working (see TensorBoard)
-- Increase training time (try 2-5M timesteps)
-- Adjust reward values in `config.py`
-- Verify memory addresses are correct for your ROM version
-
-### Issue: CUDA out of memory
-**Solutions**:
-- Reduce `BATCH_SIZE` in `config.py`
-- Use CPU instead: Set `device="cpu"` in `train.py`
-
-### Issue: Import errors
-**Solution**: 
+### CUDA Out of Memory
+Reduce parallel environments:
 ```bash
-pip install --upgrade -r requirements.txt
+python scripts/train_sequence1_house_exit.py --envs 2
+```
+
+### Model Not Working During Play
+Ensure you're using the correct sequence flag:
+```bash
+# Model trained on sequence 1 must be played with --sequence 1
+python scripts/play.py --model <seq1_model.zip> --sequence 1
 ```
 
 ---
 
-## 🎓 How It Works
-
-### The RL Loop
+## Dependencies
 
 ```
-1. Agent observes game screen (84x84 grayscale, 4 frames stacked)
-2. Agent selects action (up, down, left, right, A, B, start, select)
-3. Action is executed in the game
-4. Game state changes
-5. Reward is calculated based on game state changes
-6. Agent learns from this experience
-7. Repeat!
+gymnasium
+stable-baselines3
+torch
+pyboy
+opencv-python
+numpy
+tensorboard
 ```
 
-### Observation Space
+---
 
-- **Input**: 84x84x4 grayscale image (4 stacked frames)
-- **Processing**: Downsampled and grayscaled from original 160x144 RGB
-- **Why stacking?**: Gives the agent temporal information (movement direction, animation states)
+## Results Summary
 
-### Action Space
-
-9 discrete actions:
-- 0: No-op (do nothing)
-- 1: Up
-- 2: Down
-- 3: Left
-- 4: Right
-- 5: A (interact, confirm)
-- 6: B (cancel, run)
-- 7: Start (menu)
-- 8: Select
-
-### Reward Structure
-
-The agent receives rewards for:
-- **Exploration**: Small bonus for visiting new game states
-- **Progress**: Larger rewards for entering grass areas
-- **Engagement**: Reward for starting battles
-- **Goal Achievement**: Large reward for catching a Pokemon
-
-Small negative reward per step encourages efficient behavior.
+| Sequence | Training Time | Success Rate |
+|----------|--------------|--------------|
+| House Exit | ~1 hour | 70% |
+| Exploration | ~2 hours | 60% |
+| Battle | ~2 hours | 50% |
 
 ---
 
-## 📚 Learning Resources
+## Acknowledgments
 
-### Reinforcement Learning
-- [Spinning Up in Deep RL](https://spinningup.openai.com/)
-- [Stable-Baselines3 Documentation](https://stable-baselines3.readthedocs.io/)
-- [PPO Algorithm Explained](https://openai.com/blog/openai-baselines-ppo/)
-
-### Pokemon Red
-- [Pokemon Red Disassembly](https://github.com/pret/pokered)
-- [PyBoy Documentation](https://docs.pyboy.dk/)
-- [Pokemon Red RAM Map](https://datacrystal.romhacking.net/wiki/Pok%C3%A9mon_Red/Blue:RAM_map)
+- **PyBoy**: Python Game Boy emulator
+- **Stable-Baselines3**: RL algorithm implementations
+- **Dr. Rubinstein**: PokeRL framework inspiration
+- **Pokemon Red Disassembly**: Memory address documentation
 
 ---
 
-## 🤝 Contributing
+## License
 
-Improvements welcome! Some ideas:
-- Better reward shaping
-- Curriculum learning (progressive difficulty)
-- Multi-objective rewards
-- Different RL algorithms comparison
-- Extended goals (catch specific Pokemon, reach certain locations)
-
----
-
-## ⚖️ Legal Notice
-
-This project is for educational purposes. You must own a legal copy of Pokemon Red to use this software. The ROM file is not included and must be obtained legally.
-
----
-
-## 📄 License
-
-MIT License - See LICENSE file for details
-
----
-
-## 🎉 Acknowledgments
-
-- **PyBoy**: Excellent Python Game Boy emulator
-- **Stable-Baselines3**: Making RL accessible
-- **Pokemon Red**: The classic game that started it all
-- **OpenAI Gym**: Standard RL environment interface
-
----
-
-## 📧 Questions?
-
-If you encounter issues:
-1. Check the Troubleshooting section
-2. Verify your setup with `test_env.py`
-3. Review configuration in `config.py`
-4. Check TensorBoard logs for training issues
+MIT License - See [LICENSE](LICENSE) for details.
 
 ---
 
@@ -462,7 +342,6 @@ If you encounter issues:
 
 **Happy Training! 🎮🤖**
 
-*May your agent catch them all!*
+*Gotta train 'em all!*
 
 </div>
-

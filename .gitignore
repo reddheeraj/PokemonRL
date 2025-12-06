@@ -13,7 +13,7 @@ screenshots/
 
 # Model files and checkpoints
 models/
-*.zip
+
 *.pth
 *.pt
 
@@ -65,7 +65,9 @@ DRL *
 DRL_*
 PROJECT_PROPOSAL.md
 vids.txt
+models/
 bc/
 tests/
 TECHNICAL_README.md
 INDEX.md
+roms.zip
